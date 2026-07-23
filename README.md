@@ -47,21 +47,24 @@ readmark/
 │   ├── api.js               #   API client — set API_BASE_URL here
 │   └── icons/               #   toolbar icons
 │
-└── backend/                 # FastAPI server (the API + dashboard)
-    ├── main.py              #   app entry, CORS, static dashboard, article proxy
-    ├── config.py            #   settings (loaded from env / .env)
-    ├── database.py          #   async SQLAlchemy engine + table creation
-    ├── models.py            #   User + ReadingItem tables
-    ├── schemas.py           #   Pydantic request/response models
-    ├── auth.py              #   JWT, bcrypt hashing, Google token verification
-    ├── url_utils.py         #   URL normalization helpers
-    ├── routes/              #   auth_routes.py, items_routes.py
-    ├── static/              #   web dashboard (index.html, reader, PWA files)
-    ├── test_readmark.py     #   integration test suite
-    ├── requirements.txt     #   Python dependencies
-    ├── Dockerfile           #   container image
-    ├── docker-compose.yml   #   one-command container deploy
-    └── .env.example         #   template for configuration
+├── backend/                 # FastAPI server (the API + dashboard)
+│   ├── main.py              #   app entry, CORS, dashboard, /metrics, health
+│   ├── config.py            #   settings (loaded from env / .env)
+│   ├── database.py          #   async SQLAlchemy engine + migrations
+│   ├── models.py            #   User, ReadingItem, AIUsage tables
+│   ├── ai.py                #   Claude summarization + cost estimation
+│   ├── observability.py     #   JSON logging + Prometheus metrics
+│   ├── auth.py              #   JWT, bcrypt hashing, Google token verification
+│   ├── routes/              #   auth_routes, items_routes, ai_routes
+│   ├── static/              #   web dashboard (index.html, reader, PWA files)
+│   ├── test_readmark.py     #   integration test suite
+│   ├── Dockerfile           #   multi-stage, non-root, healthcheck
+│   └── docker-compose.yml   #   one-command container deploy
+│
+├── infra/                   # Terraform — AWS deployment (EC2 + Docker)
+├── .github/workflows/       # CI (lint/test), Deploy (ECR→SSM), Terraform, Infracost
+├── scripts/                 # smoke-test.sh, aws-cost-report.sh
+└── docs/                    # architecture, runbooks, ADRs
 ```
 
 ---
@@ -163,11 +166,20 @@ All endpoints are under `/api`. Authenticated routes need an
 | `GET` | `/api/items/lookup/url` | Find a saved item by its URL |
 | `POST` | `/api/items/sync` | Bulk-sync items from the client |
 
-### Misc
+### AI (Claude)
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `GET` | `/api/health` | Health check |
+| `POST` | `/api/ai/summarize` | Summarize a saved item, URL, or text → summary + token/cost usage |
+| `GET` | `/api/ai/usage` | Aggregated AI usage & estimated spend for the user (FinOps) |
+
+### Ops & Misc
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/api/health` | Liveness check |
+| `GET` | `/api/ready` | Readiness check (database reachable) |
+| `GET` | `/metrics` | Prometheus metrics (HTTP + AI usage/cost) |
 | `GET` | `/api/proxy` | Server-side article fetch for the in-app reader (authed) |
 | `GET` | `/` | Web dashboard |
 | `GET` | `/docs` | Interactive OpenAPI docs |
@@ -208,6 +220,50 @@ used. **Set `SECRET_KEY` via `.env` before exposing it publicly.**
 - **Back up the database** (`readmark.db` or your `DATABASE_URL` target).
 - For heavier use, point `DATABASE_URL` at Postgres
   (`postgresql+asyncpg://...`) instead of SQLite.
+
+---
+
+## Cloud deployment & DevOps (AWS)
+
+Beyond the single-server Docker setup above, ReadMark ships with a full
+**Infrastructure-as-Code** deployment to AWS and an automated delivery pipeline.
+
+```
+GitHub push ─► Actions ─┬─ CI:        ruff lint + pytest (43 integration tests)
+                        ├─ Deploy:    build image → ECR → SSM run-command → EC2
+                        ├─ Terraform: fmt / validate / plan (+ Infracost)
+                        └─ Infracost: monthly cost estimate on infra PRs
+
+AWS (us-east-1, default VPC), all provisioned by Terraform (infra/):
+  EC2 t3.micro (Docker) ── SQLite on EBS
+    ├─ image pulled from ECR
+    ├─ secrets from SSM Parameter Store (SecureString), injected at runtime
+    ├─ container logs → CloudWatch Logs (structured JSON)
+    └─ daily SQLite snapshot → S3 (30-day lifecycle)
+  CloudWatch alarms: instance status-check + CPU
+```
+
+| Capability | How |
+| --- | --- |
+| **Infrastructure as Code** | `infra/` — Terraform (EC2, ECR, IAM, SSM, S3, CloudWatch) |
+| **CI/CD** | GitHub Actions — lint/test, build→ECR→SSM deploy, Terraform plan |
+| **Containers** | Multi-stage Docker image, non-root, healthcheck |
+| **Secrets** | SSM Parameter Store (SecureString); never in git/AMI/image |
+| **Observability** | Structured JSON logs + Prometheus `/metrics`; CloudWatch alarms |
+| **AI integration** | Anthropic Claude summarization with per-call token/cost tracking |
+| **FinOps** | Infracost in CI, ECR/S3 lifecycle policies, AI-spend metrics, cost report script |
+| **Runbooks** | Incident response, deploy/rollback, backup/restore (`docs/runbooks/`) |
+
+**Deploy it:**
+
+```bash
+cd infra
+cp terraform.tfvars.example terraform.tfvars   # set app_secret_key (+ anthropic_api_key)
+terraform init && terraform apply
+```
+
+See **[`docs/architecture.md`](docs/architecture.md)** for the full picture and
+**[`docs/runbooks/`](docs/runbooks/)** for operational procedures.
 
 ---
 
