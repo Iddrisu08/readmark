@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   readmark:
     build: .
@@ -10,8 +8,11 @@ services:
       - readmark-data:/data
     environment:
       - DATABASE_URL=sqlite+aiosqlite:////data/readmark.db
+    # Optional: create a .env file to override SECRET_KEY, CORS, Google OAuth, etc.
+    # `required: false` lets `docker compose up` work even when no .env exists.
     env_file:
-      - .env
+      - path: .env
+        required: false
     restart: unless-stopped
 
 volumes:

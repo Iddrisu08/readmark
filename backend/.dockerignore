@@ -1,0 +1,14 @@
+# Keep secrets, local data, and cruft out of the image / build context
+.env
+.env.*
+!.env.example
+*.db
+*.sqlite
+*.sqlite3
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.swp
+.DS_Store
