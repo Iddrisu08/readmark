@@ -26,6 +26,16 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
 
+    # AI (article summarization). Feature is disabled if no API key is set.
+    AI_PROVIDER: str = "anthropic"
+    ANTHROPIC_API_KEY: Optional[str] = None
+    AI_MODEL: str = "claude-haiku-4-5-20251001"  # cheap + fast for summaries
+    AI_MAX_TOKENS: int = 400
+
+    @property
+    def ai_enabled(self) -> bool:
+        return bool(self.ANTHROPIC_API_KEY)
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

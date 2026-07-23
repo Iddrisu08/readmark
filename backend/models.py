@@ -49,6 +49,7 @@ class ReadingItem(Base):
     scroll_position = Column(Integer, default=0)  # 0-100 percentage
     estimated_read_time = Column(Integer, default=0)  # minutes
     favicon = Column(String(500), nullable=True)
+    summary = Column(Text, nullable=True)  # AI-generated summary (Claude)
     created_at = Column(DateTime(timezone=True), default=utcnow)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
@@ -58,3 +59,19 @@ class ReadingItem(Base):
         Index("ix_user_normalized_url", "user_id", "normalized_url"),
         Index("ix_user_status", "user_id", "status"),
     )
+
+
+class AIUsage(Base):
+    """One row per AI call — powers usage/cost monitoring (FinOps)."""
+    __tablename__ = "ai_usage"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    item_id = Column(String(36), nullable=True)
+    provider = Column(String(50), nullable=False)   # e.g. "anthropic"
+    model = Column(String(100), nullable=False)
+    operation = Column(String(50), default="summarize")
+    input_tokens = Column(Integer, default=0)
+    output_tokens = Column(Integer, default=0)
+    cost_usd = Column(Float, default=0.0)
+    created_at = Column(DateTime(timezone=True), default=utcnow, index=True)

@@ -105,3 +105,30 @@ class SyncResponse(BaseModel):
     """Server responds with the merged state."""
     items: List[ItemResponse]
     synced_at: datetime
+
+
+# ── AI ────────────────────────────────────────────────
+
+class SummarizeRequest(BaseModel):
+    """Summarize an existing saved item, a URL, or raw text (in that priority)."""
+    item_id: Optional[str] = None
+    url: Optional[str] = None
+    text: Optional[str] = None
+
+
+class SummarizeResponse(BaseModel):
+    item_id: Optional[str] = None
+    summary: str
+    provider: str
+    model: str
+    input_tokens: int
+    output_tokens: int
+    cost_usd: float
+
+
+class UsageSummaryResponse(BaseModel):
+    """Aggregated AI usage/cost for the current user (FinOps view)."""
+    total_requests: int
+    total_input_tokens: int
+    total_output_tokens: int
+    total_cost_usd: float

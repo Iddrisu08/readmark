@@ -14,19 +14,24 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
 
 from config import settings
-from database import init_db, get_db
+from database import init_db, check_db, get_db
 from models import User
 from auth import get_current_user
 from routes.auth_routes import router as auth_router
 from routes.items_routes import router as items_router
+from routes.ai_routes import router as ai_router
+from observability import setup_logging, setup_metrics
 from sqlalchemy.ext.asyncio import AsyncSession
+
+log = setup_logging("DEBUG" if settings.DEBUG else "INFO")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup: create database tables."""
     await init_db()
-    print(f"✦ {settings.APP_NAME} v{settings.APP_VERSION} ready")
+    log.info(f"{settings.APP_NAME} v{settings.APP_VERSION} ready",
+             extra={"extra_fields": {"ai_enabled": settings.ai_enabled}})
     yield
 
 
@@ -52,13 +57,27 @@ app.add_middleware(
 
 app.include_router(auth_router, prefix="/api")
 app.include_router(items_router, prefix="/api")
+app.include_router(ai_router, prefix="/api")
+
+# ── Observability: Prometheus /metrics ────────────────
+setup_metrics(app)
 
 
-# ── Health Check ──────────────────────────────────────
+# ── Health & Readiness ────────────────────────────────
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "app": settings.APP_NAME, "version": settings.APP_VERSION}
+    """Liveness — process is up."""
+    return {"status": "ok", "app": settings.APP_NAME, "version": settings.APP_VERSION,
+            "ai_enabled": settings.ai_enabled}
+
+
+@app.get("/api/ready")
+async def ready():
+    """Readiness — dependencies (database) are reachable."""
+    if await check_db():
+        return {"status": "ready"}
+    raise HTTPException(status_code=503, detail="database unavailable")
 
 
 # ── Static Web Dashboard ─────────────────────────────
