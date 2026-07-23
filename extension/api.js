@@ -7,9 +7,9 @@
  * └─────────────────────────────────────────────────────────┘
  */
 
-// Set this to your ReadMark server's URL. For local development the backend
-// runs on http://localhost:8000 (see backend/README.md).
-const API_BASE_URL = "http://localhost:8000/api";
+// ReadMark server URL. Production is https://getreadmark.com; for local
+// development against your own backend, use "http://localhost:8000/api".
+const API_BASE_URL = "https://getreadmark.com/api";
 
 const ReadMarkAPI = {
   // ── Auth state (cached in chrome.storage) ────────────────
