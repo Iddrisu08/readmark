@@ -1,0 +1,26 @@
+name: Infracost
+
+# FinOps: estimate the monthly cost impact of infra changes on each PR.
+# Requires the INFRACOST_API_KEY secret (free at infracost.io). Skips if unset.
+on:
+  pull_request:
+    paths: ["infra/**"]
+
+jobs:
+  cost:
+    name: Monthly cost estimate
+    runs-on: ubuntu-latest
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Infracost
+        uses: infracost/actions/setup@v3
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      - name: Generate cost estimate
+        run: |
+          infracost breakdown --path infra \
+            --terraform-var="app_secret_key=cost-estimate-only" \
+            --format table
