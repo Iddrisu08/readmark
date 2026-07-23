@@ -1,0 +1,13 @@
+# Terraform state can contain secrets — never commit it
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# Local vars often hold secrets
+*.tfvars
+!*.tfvars.example
+
+# Terraform working dirs / locks / crash logs
+.terraform/
+.terraform.lock.hcl
+crash.log

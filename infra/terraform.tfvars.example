@@ -1,0 +1,20 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored.
+
+aws_region    = "us-east-1"
+project       = "readmark"
+instance_type = "t3.micro"
+
+# Restrict SSH to your IP, e.g. "203.0.113.4/32". Default is open (0.0.0.0/0).
+ssh_ingress_cidr = "0.0.0.0/0"
+
+# Optional existing EC2 key pair for SSH. Leave "" to rely on SSM only.
+key_name = ""
+
+# Required: JWT signing secret. Generate: python -c "import secrets; print(secrets.token_hex(32))"
+app_secret_key = "REPLACE_WITH_A_LONG_RANDOM_SECRET"
+
+# Optional: enables Claude summarization. Leave "" to disable the AI feature.
+anthropic_api_key = ""
+
+allowed_origins = "*"
+ai_model        = "claude-haiku-4-5-20251001"
