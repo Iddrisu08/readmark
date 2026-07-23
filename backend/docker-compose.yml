@@ -1,0 +1,18 @@
+version: "3.8"
+
+services:
+  readmark:
+    build: .
+    container_name: readmark-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - readmark-data:/data
+    environment:
+      - DATABASE_URL=sqlite+aiosqlite:////data/readmark.db
+    env_file:
+      - .env
+    restart: unless-stopped
+
+volumes:
+  readmark-data:

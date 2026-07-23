@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ReadMark Reader</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0f1117; overflow: hidden; height: 100vh; }
+
+    /* ── Top bar ── */
+    .rm-bar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: #0f1117; border-bottom: 1px solid #2a2d3a;
+      display: flex; align-items: center; gap: 10px;
+      padding: 0 14px; height: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    .rm-back {
+      background: none; border: none; color: #c084fc; cursor: pointer;
+      font-size: 24px; line-height: 1; padding: 0 6px 0 0; flex-shrink: 0;
+    }
+    .rm-back:active { opacity: 0.6; }
+    .rm-title {
+      flex: 1; font-size: 12px; color: #8b8d9a;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .rm-pct { font-size: 12px; font-weight: 700; color: #f59e0b; white-space: nowrap; min-width: 36px; text-align: right; }
+
+    /* ── Progress bar ── */
+    .rm-progress { position: fixed; top: 48px; left: 0; right: 0; height: 3px; z-index: 100; background: #2a2d3a; }
+    .rm-fill { height: 100%; background: #f59e0b; width: 0%; transition: width 0.3s ease; }
+
+    /* ── Article iframe ── */
+    #rm-frame {
+      position: fixed; top: 51px; left: 0; right: 0; bottom: 0;
+      width: 100%; height: calc(100vh - 51px);
+      border: none; background: white;
+      opacity: 0; transition: opacity 0.3s ease;
+    }
+    #rm-frame.loaded { opacity: 1; }
+
+    /* ── Overlay (loading / error) ── */
+    .rm-overlay {
+      position: fixed; top: 51px; left: 0; right: 0; bottom: 0;
+      background: #0f1117; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 50; gap: 12px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      color: #8b8d9a; font-size: 13px; text-align: center; padding: 24px;
+    }
+    .rm-spinner {
+      width: 28px; height: 28px;
+      border: 3px solid rgba(192,132,252,0.2); border-top-color: #c084fc;
+      border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .rm-error-title { font-size: 15px; font-weight: 600; color: #e4e5ea; }
+    .rm-error-desc { line-height: 1.5; max-width: 280px; }
+    .rm-open-btn {
+      background: #c084fc; color: white; border: none; border-radius: 8px;
+      padding: 12px 24px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 4px;
+    }
+    .rm-open-btn:active { background: #a855f7; }
+  </style>
+</head>
+<body>
+  <div class="rm-bar">
+    <button class="rm-back" id="rm-back">‹</button>
+    <span class="rm-title" id="rm-title">Loading article...</span>
+    <span class="rm-pct" id="rm-pct"></span>
+  </div>
+  <div class="rm-progress"><div class="rm-fill" id="rm-fill"></div></div>
+  <iframe id="rm-frame" title="Article"></iframe>
+  <div class="rm-overlay" id="rm-overlay">
+    <div class="rm-spinner"></div>
+    <span>Loading article...</span>
+  </div>
+
+  <script>
+    const API    = window.location.origin + "/api";
+    const token  = localStorage.getItem("readmark_token");
+    const params = new URLSearchParams(window.location.search);
+    const articleUrl = params.get("url");
+    const startPos   = parseInt(params.get("pos") || "0");
+
+    // Redirect to home if not authenticated or no URL given
+    if (!token || !articleUrl) { window.location.href = "/"; }
+
+    const frame   = document.getElementById("rm-frame");
+    const overlay = document.getElementById("rm-overlay");
+    const pctEl   = document.getElementById("rm-pct");
+    const fillEl  = document.getElementById("rm-fill");
+    const titleEl = document.getElementById("rm-title");
+
+    let lastSent = -1;
+    let scrollTimer;
+    let saveInterval;
+
+    // ── Progress bar UI ───────────────────────────────���──
+    function updateBar(pct) {
+      pctEl.textContent = pct + "%";
+      fillEl.style.width = pct + "%";
+    }
+
+    // ── Save scroll to API ───────────────────────────────
+    async function saveScroll(pct) {
+      if (pct === lastSent) return;
+      lastSent = pct;
+      try {
+        await fetch(API + "/items/scroll", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token,
+          },
+          body: JSON.stringify({ url: articleUrl, scroll_position: pct }),
+        });
+      } catch {}
+    }
+
+    // ── Read scroll from inside the iframe ──────────────
+    function getFramePct() {
+      try {
+        const fw = frame.contentWindow;
+        const fd = frame.contentDocument;
+        const h  = fd.documentElement.scrollHeight - fd.documentElement.clientHeight;
+        return h <= 0 ? 0 : Math.min(100, Math.round((fw.scrollY / h) * 100));
+      } catch { return lastSent >= 0 ? lastSent : 0; }
+    }
+
+    function onFrameScroll() {
+      const pct = getFramePct();
+      updateBar(pct);
+      clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(() => saveScroll(pct), 1000);
+    }
+
+    // ── Restore scroll position ──────────────────────────
+    function restoreScroll(pos) {
+      if (pos <= 0) return;
+      let attempts = 0;
+      function tryRestore() {
+        try {
+          const fd = frame.contentDocument;
+          const fw = frame.contentWindow;
+          const h  = fd.documentElement.scrollHeight - fd.documentElement.clientHeight;
+          if (h > 100) {
+            fw.scrollTo({ top: Math.round((pos / 100) * h), behavior: "smooth" });
+            updateBar(pos);
+          } else if (attempts++ < 10) {
+            // Page still loading (lazy images expanding) — retry
+            setTimeout(tryRestore, 400);
+          }
+        } catch {}
+      }
+      setTimeout(tryRestore, 500);
+    }
+
+    // ── Frame loaded ─────────────────────────────────────
+    frame.addEventListener("load", () => {
+      try {
+        frame.contentWindow.document; // throws if cross-origin (shouldn't happen with srcdoc)
+      } catch {
+        showError("blocked"); return;
+      }
+
+      // Show frame, hide spinner
+      frame.classList.add("loaded");
+      overlay.style.display = "none";
+
+      // Pull title from the loaded document
+      const docTitle = frame.contentDocument?.title;
+      if (docTitle) titleEl.textContent = docTitle;
+
+      // Restore saved position
+      restoreScroll(startPos);
+
+      // Track scroll inside iframe
+      frame.contentWindow.addEventListener("scroll", onFrameScroll, { passive: true });
+
+      // Save every 5 s and on iframe unload
+      saveInterval = setInterval(() => saveScroll(getFramePct()), 5000);
+      frame.contentWindow.addEventListener("beforeunload", () => saveScroll(getFramePct()));
+    });
+
+    // ── Error state ──────────────────────────────────────
+    function showError(type = "blocked") {
+      clearInterval(saveInterval);
+      frame.style.display = "none";
+
+      const messages = {
+        timeout:  { icon: "⏱", title: "Article took too long to load",       desc: "The site didn't respond in time. Check your connection or try again." },
+        network:  { icon: "📡", title: "Couldn't reach the article",          desc: "Check your internet connection and try again." },
+        blocked:  { icon: "🔗", title: "This site can't load in the reader",  desc: "The site restricts in-app loading. Open it directly in your browser — your progress will still be saved when you return." },
+        bot:      { icon: "🤖", title: "Bot protection blocked the reader",   desc: "This site (e.g. Medium, Substack) uses Cloudflare or similar protection that blocks server-side loading. Open it in your browser instead — your progress will sync back when you return." },
+        paywall:  { icon: "🔒", title: "This article is behind a paywall",    desc: "You need to be logged in or subscribed to read this. Open it in your browser where you're already signed in." },
+        nohtml:   { icon: "📄", title: "Content can't be displayed",          desc: "This link doesn't point to a readable article (it may be a PDF, video, or download)." },
+        unknown:  { icon: "⚠️", title: "Something went wrong",               desc: "The article couldn't be loaded. Try opening it in your browser instead." },
+      };
+
+      const { icon, title, desc } = messages[type] || messages.unknown;
+      const canRetry = type === "timeout" || type === "network";
+
+      overlay.innerHTML = `
+        <div style="font-size:32px;margin-bottom:4px">${icon}</div>
+        <div class="rm-error-title">${title}</div>
+        <div class="rm-error-desc">${desc}</div>
+        <button class="rm-open-btn" id="open-direct">Open in Browser</button>
+        ${canRetry ? `<button class="rm-open-btn" id="retry-btn" style="background:#2a2d3a;margin-top:0">Try Again</button>` : ""}
+        <button class="rm-open-btn" id="back-btn" style="background:transparent;border:1px solid #2a2d3a;color:#8b8d9a;margin-top:0">‹ Back to Library</button>
+      `;
+      overlay.style.display = "flex";
+
+      document.getElementById("open-direct").addEventListener("click", () => {
+        // Navigate in the same tab — user can hit Back to return to ReadMark
+        window.location.href = articleUrl;
+      });
+      document.getElementById("retry-btn")?.addEventListener("click", () => {
+        overlay.innerHTML = '<div class="rm-spinner"></div><span>Retrying...</span>';
+        load();
+      });
+      document.getElementById("back-btn").addEventListener("click", () => {
+        if (history.length > 1) history.back();
+        else window.location.href = "/";
+      });
+    }
+
+    // ── Back button ──────────────────────────────────────
+    document.getElementById("rm-back").addEventListener("click", async () => {
+      await saveScroll(getFramePct());
+      clearInterval(saveInterval);
+      if (history.length > 1) history.back();
+      else window.location.href = "/";
+    });
+
+    // ── Fetch article via proxy and load into iframe ─────
+    async function load() {
+      // Reset overlay to loading state
+      overlay.innerHTML = '<div class="rm-spinner"></div><span>Loading article...</span>';
+      overlay.style.display = "flex";
+      frame.style.display = "";
+      frame.classList.remove("loaded");
+
+      try {
+        const resp = await fetch(
+          API + "/proxy?url=" + encodeURIComponent(articleUrl),
+          { headers: { "Authorization": "Bearer " + token } }
+        );
+        if (resp.status === 504) { showError("timeout");  return; }
+        if (resp.status === 502) { showError("network");  return; }
+        if (resp.status === 403) { showError("bot");      return; }
+        if (resp.status === 451) { showError("paywall");  return; }
+        if (resp.status === 400) { showError("nohtml");   return; }
+        if (!resp.ok)            { showError("unknown");  return; }
+        const html = await resp.text();
+        frame.srcdoc = html;
+      } catch {
+        // fetch() itself threw — ReadMark server unreachable
+        showError("network");
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>

@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ReadMark</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#c084fc">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ReadMark">
+  <link rel="apple-touch-icon" href="/static/icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,300&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f1117; --surface: #181a23; --surface-hover: #1e2130;
+      --text: #e4e5ea; --text2: #8b8d9a; --muted: #5a5c6a;
+      --border: #2a2d3a; --accent: #c084fc; --accent-hover: #a855f7;
+      --unread: #64748b; --reading: #f59e0b; --done: #22c55e;
+      --input-bg: #1a1c28; --danger: #ef4444;
+    }
+    .light {
+      --bg: #f8f7f4; --surface: #ffffff; --surface-hover: #f5f4f1;
+      --text: #1a1a2e; --text2: #6b7280; --muted: #9ca3af;
+      --border: #e5e5e0; --accent: #7c3aed; --accent-hover: #6d28d9;
+      --unread: #94a3b8; --reading: #d97706; --done: #16a34a;
+      --input-bg: #f3f3ef; --danger: #dc2626;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    ::selection { background: var(--accent); color: white; }
+    body {
+      font-family: 'DM Sans', -apple-system, sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; transition: background 0.2s, color 0.2s;
+    }
+    input, textarea, select, button { font-family: inherit; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Layout ───────────────────────────── */
+    .container { max-width: 800px; margin: 0 auto; padding: 0 20px; }
+
+    /* ── Auth Screen ──────────────────────── */
+    .auth-screen {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; padding: 20px;
+    }
+    .auth-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; padding: 40px; width: 100%; max-width: 400px;
+      animation: fadeIn 0.3s ease;
+    }
+    .auth-logo {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 28px; justify-content: center;
+    }
+    .auth-logo-icon {
+      width: 44px; height: 44px; border-radius: 10px;
+      background: rgba(192,132,252,0.12);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .auth-logo h1 {
+      font-family: 'Source Serif 4', Georgia, serif;
+      font-size: 26px; font-weight: 700; letter-spacing: -0.02em;
+    }
+    .auth-tabs {
+      display: flex; gap: 0; margin-bottom: 24px;
+      border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    }
+    .auth-tab {
+      flex: 1; padding: 10px; text-align: center;
+      background: transparent; border: none; color: var(--muted);
+      font-size: 13px; font-weight: 500; cursor: pointer;
+      transition: all 0.15s;
+    }
+    .auth-tab.active {
+      background: var(--accent); color: white; font-weight: 600;
+    }
+    .auth-field { margin-bottom: 14px; }
+    .auth-field label {
+      display: block; font-size: 12px; font-weight: 500;
+      color: var(--text2); margin-bottom: 5px;
+    }
+    .auth-input {
+      width: 100%; padding: 10px 14px; background: var(--input-bg);
+      border: 1px solid var(--border); border-radius: 8px;
+      font-size: 14px; color: var(--text); transition: border-color 0.2s;
+    }
+    .auth-input:focus { outline: none; border-color: var(--accent); }
+    .auth-submit {
+      width: 100%; padding: 12px; background: var(--accent);
+      color: white; border: none; border-radius: 8px;
+      font-size: 14px; font-weight: 600; cursor: pointer;
+      transition: background 0.15s; margin-top: 4px;
+    }
+    .auth-submit:hover { background: var(--accent-hover); }
+    .auth-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+    .auth-divider {
+      display: flex; align-items: center; gap: 12px;
+      margin: 18px 0; color: var(--muted); font-size: 12px;
+    }
+    .auth-divider::before, .auth-divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+    .google-btn {
+      width: 100%; padding: 10px; background: var(--surface-hover);
+      border: 1px solid var(--border); border-radius: 8px;
+      font-size: 13px; font-weight: 500; color: var(--text);
+      cursor: pointer; display: flex; align-items: center;
+      justify-content: center; gap: 8px; transition: background 0.15s;
+    }
+    .google-btn:hover { background: var(--input-bg); }
+    .auth-error {
+      background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
+      color: var(--danger); padding: 8px 12px; border-radius: 6px;
+      font-size: 12px; margin-bottom: 14px; display: none;
+    }
+
+    /* ── App Header ───────────────────────── */
+    .app-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 24px 0 18px; border-bottom: 1px solid var(--border);
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .logo-mark {
+      width: 40px; height: 40px; border-radius: 10px;
+      background: rgba(192,132,252,0.1);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .app-title {
+      font-family: 'Source Serif 4', Georgia, serif;
+      font-size: 20px; font-weight: 700; letter-spacing: -0.02em;
+    }
+    .app-subtitle { font-size: 12px; color: var(--text2); margin-top: 1px; }
+    .header-right { display: flex; align-items: center; gap: 8px; }
+    .icon-btn {
+      width: 36px; height: 36px; border-radius: 8px;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--text2); cursor: pointer; font-size: 15px;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    .icon-btn:hover { background: var(--surface); color: var(--text); }
+    .icon-btn.spinning { animation: spin-icon 0.7s linear infinite; color: var(--accent); }
+    @keyframes spin-icon { to { transform: rotate(360deg); } }
+    .add-btn {
+      background: var(--accent); color: white; border: none;
+      border-radius: 8px; padding: 8px 16px; font-size: 13px;
+      font-weight: 600; cursor: pointer; transition: background 0.15s;
+    }
+    .add-btn:hover { background: var(--accent-hover); }
+    .user-badge {
+      font-size: 11px; color: var(--muted); padding: 4px 10px;
+      border: 1px solid var(--border); border-radius: 6px;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .user-badge:hover { color: var(--danger); border-color: var(--danger); }
+
+    /* ── Add Form ─────────────────────────── */
+    .add-form {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 18px; margin-top: 14px;
+      display: none; animation: slideDown 0.2s ease;
+    }
+    .add-form.visible { display: block; }
+    .add-form h3 {
+      font-family: 'Source Serif 4', Georgia, serif;
+      font-size: 15px; font-weight: 600; margin-bottom: 12px;
+    }
+    .form-grid { display: flex; flex-direction: column; gap: 10px; }
+    .form-input {
+      width: 100%; padding: 9px 12px; background: var(--input-bg);
+      border: 1px solid var(--border); border-radius: 8px;
+      font-size: 13px; color: var(--text); transition: border-color 0.2s;
+    }
+    .form-input:focus { outline: none; border-color: var(--accent); }
+    .form-row { display: flex; gap: 8px; align-items: center; }
+    .form-select {
+      flex: 1; padding: 9px 12px; background: var(--input-bg);
+      border: 1px solid var(--border); border-radius: 8px;
+      font-size: 12px; color: var(--text); cursor: pointer;
+    }
+    .form-submit {
+      padding: 9px 18px; background: var(--accent); color: white;
+      border: none; border-radius: 8px; font-size: 13px;
+      font-weight: 600; cursor: pointer; white-space: nowrap;
+    }
+
+    /* ── Filters ──────────────────────────── */
+    .filters-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 8px; padding: 14px 0 8px;
+    }
+    .status-filters { display: flex; gap: 4px; }
+    .filter-btn {
+      background: transparent; border: none; border-radius: 6px;
+      padding: 6px 11px; font-size: 13px; color: var(--text2);
+      cursor: pointer; display: flex; align-items: center; gap: 3px;
+      transition: all 0.15s;
+    }
+    .filter-btn.active {
+      background: rgba(192,132,252,0.12); color: var(--accent); font-weight: 600;
+    }
+    .filter-count { font-size: 11px; opacity: 0.6; margin-left: 3px; }
+    .right-filters { display: flex; gap: 6px; }
+    .filter-select {
+      background: var(--input-bg); border: 1px solid var(--border);
+      border-radius: 6px; padding: 5px 10px; font-size: 12px;
+      color: var(--text2); cursor: pointer;
+    }
+
+    /* ── Search ───────────────────────────── */
+    .search-wrap { position: relative; margin-bottom: 12px; }
+    .search-icon {
+      position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+      color: var(--muted); font-size: 15px; pointer-events: none;
+    }
+    .search-input {
+      width: 100%; padding: 10px 14px 10px 36px;
+      background: var(--input-bg); border: 1px solid var(--border);
+      border-radius: 10px; font-size: 13px; color: var(--text);
+    }
+    .search-input:focus { outline: none; border-color: var(--accent); }
+
+    /* ── Item Cards ───────────────────────── */
+    .items-list { display: flex; flex-direction: column; gap: 6px; padding-bottom: 60px; }
+    .item-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; overflow: hidden; transition: transform 0.15s;
+      animation: fadeIn 0.25s ease;
+    }
+    .item-card:hover { transform: translateY(-1px); }
+    .item-main {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 12px 14px 8px;
+    }
+    .status-btn {
+      background: none; border: none; cursor: pointer;
+      padding: 3px 2px 0; font-size: 17px; line-height: 1; flex-shrink: 0;
+    }
+    .item-content { flex: 1; min-width: 0; }
+    .item-title {
+      font-family: 'Source Serif 4', Georgia, serif;
+      font-size: 14px; font-weight: 600; color: var(--text);
+      text-decoration: none; line-height: 1.3; display: inline;
+    }
+    .item-title:hover { color: var(--accent); text-decoration: none; }
+    .item-meta {
+      display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+      margin-top: 4px; font-size: 11px; color: var(--muted);
+    }
+    .category-badge {
+      background: rgba(255,255,255,0.06); padding: 2px 7px;
+      border-radius: 4px; font-size: 10px; font-weight: 500;
+    }
+    .progress-badge { color: var(--reading); font-weight: 500; }
+    /* ── Resume Modal ─────────────────────── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 200; padding: 20px; animation: fadeIn 0.2s ease;
+    }
+    .modal-card {
+      background: var(--surface); border: 1px solid rgba(192,132,252,0.3);
+      border-radius: 16px; padding: 28px 24px; max-width: 340px; width: 100%;
+      text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .modal-icon { font-size: 32px; margin-bottom: 12px; }
+    .modal-title {
+      font-family: 'Source Serif 4', Georgia, serif;
+      font-size: 17px; font-weight: 600; margin-bottom: 10px;
+    }
+    .modal-article { font-size: 12px; color: var(--text2); margin-bottom: 8px; font-style: italic; }
+    .modal-pct { font-size: 36px; font-weight: 700; color: var(--reading); margin-bottom: 4px; }
+    .modal-pct-label { font-size: 12px; color: var(--muted); margin-bottom: 20px; }
+    .modal-actions { display: flex; flex-direction: column; gap: 8px; }
+    .btn-resume {
+      width: 100%; padding: 13px; background: var(--accent); color: white;
+      border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    .btn-resume:active { background: var(--accent-hover); }
+    .btn-start-over {
+      width: 100%; padding: 11px; background: transparent; color: var(--text2);
+      border: 1px solid var(--border); border-radius: 8px; font-size: 13px; cursor: pointer;
+    }
+    .item-notes {
+      font-size: 12px; color: var(--text2); margin-top: 5px;
+      line-height: 1.4; font-style: italic; opacity: 0.8;
+    }
+    .item-actions {
+      display: flex; gap: 2px; flex-shrink: 0; opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .item-card:hover .item-actions { opacity: 1; }
+    .action-btn {
+      background: none; border: none; color: var(--text2);
+      cursor: pointer; padding: 4px 6px; font-size: 13px;
+      border-radius: 4px; transition: color 0.15s;
+    }
+    .action-btn.delete:hover { color: var(--danger); }
+    .status-bar {
+      display: flex; border-top: 1px solid var(--border);
+    }
+    .quick-status {
+      flex: 1; background: transparent; border: none;
+      border-right: 1px solid var(--border);
+      padding: 5px; font-size: 11px; color: var(--muted);
+      cursor: pointer; transition: all 0.15s;
+    }
+    .quick-status:last-child { border-right: none; }
+    .quick-status.active { color: white; font-weight: 600; }
+    .quick-status:disabled { opacity: 0.25; cursor: not-allowed; }
+
+    /* ── Empty State ──────────────────────── */
+    .empty-state {
+      text-align: center; padding: 60px 20px;
+    }
+    .empty-icon { margin-bottom: 14px; opacity: 0.35; }
+    .empty-title {
+      font-family: 'Source Serif 4', Georgia, serif;
+      font-size: 17px; font-weight: 600; margin-bottom: 5px;
+    }
+    .empty-desc { font-size: 13px; color: var(--muted); }
+
+    /* ── Footer ───────────────────────────── */
+    .app-footer {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 14px 0; border-top: 1px solid var(--border);
+      font-size: 11px; color: var(--muted);
+    }
+
+    /* ── Toast ────────────────────────────── */
+    .toast {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: var(--accent); color: white; padding: 8px 20px;
+      border-radius: 8px; font-size: 13px; font-weight: 500;
+      z-index: 1000; animation: fadeIn 0.2s ease;
+    }
+
+    /* ── Loading ──────────────────────────── */
+    .loading {
+      display: flex; align-items: center; justify-content: center;
+      padding: 40px; color: var(--muted); font-size: 13px;
+    }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes slideDown { from { opacity: 0; max-height: 0; } to { opacity: 1; max-height: 400px; } }
+
+    /* ── Mobile / PWA ─────────────────────── */
+    .fab {
+      display: none;
+      position: fixed; bottom: 24px; right: 20px;
+      width: 56px; height: 56px; border-radius: 50%;
+      background: var(--accent); color: white;
+      border: none; font-size: 28px; line-height: 1;
+      cursor: pointer; box-shadow: 0 4px 20px rgba(192,132,252,0.45);
+      align-items: center; justify-content: center;
+      transition: transform 0.2s, background 0.2s; z-index: 100;
+    }
+    .fab:active { background: var(--accent-hover); transform: scale(0.94); }
+
+    @media (max-width: 640px) {
+      .container { padding: 0 14px; }
+      .app-header { padding: 14px 0 10px; }
+      .app-subtitle { display: none; }
+      .add-btn { display: none; }
+      .fab { display: flex; }
+      .user-badge { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .item-actions { opacity: 1 !important; }
+      .action-btn { padding: 6px 8px; font-size: 15px; }
+      .quick-status { padding: 8px 4px; font-size: 12px; }
+      .status-btn { font-size: 20px; padding: 4px 2px 0; }
+      .items-list { padding-bottom: 90px; }
+      .form-input, .form-select { font-size: 16px; }
+      .auth-input { font-size: 16px; }
+      .auth-card { padding: 28px 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    // ── Config ─────────────────────────────────
+    const API = window.location.origin + "/api";
+    const CATEGORIES = ["Article", "Essay", "Tutorial", "Research", "Video", "Podcast", "Other"];
+    const STATUS_CONFIG = {
+      unread:  { label: "Unread",  icon: "○", color: "var(--unread)" },
+      reading: { label: "Reading", icon: "◐", color: "var(--reading)" },
+      done:    { label: "Done",    icon: "●", color: "var(--done)" },
+    };
+    const STATUS_ORDER = ["unread", "reading", "done"];
+
+    // ── State ──────────────────────────────────
+    let state = {
+      user: null,
+      token: localStorage.getItem("readmark_token"),
+      items: [],
+      theme: localStorage.getItem("readmark_theme") || "dark",
+      filter: "all",
+      categoryFilter: "all",
+      sortBy: "newest",
+      searchQuery: "",
+      refreshing: false,
+      showAddForm: false,
+      editingId: null,
+      formData: { url: "", title: "", category: "Article", notes: "" },
+      resumeModal: null,
+      authMode: "login",
+      authLoading: false,
+      authError: "",
+      loading: true,
+    };
+
+    if (state.theme === "light") document.body.classList.add("light");
+
+    // ── API Helpers ────────────────────────────
+    async function api(path, opts = {}) {
+      const headers = { "Content-Type": "application/json" };
+      if (state.token) headers["Authorization"] = `Bearer ${state.token}`;
+      const res = await fetch(API + path, { ...opts, headers: { ...headers, ...opts.headers } });
+      if (res.status === 401) { logout(); throw new Error("Unauthorized"); }
+      if (res.status === 204) return null;
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: "Request failed" }));
+        throw new Error(err.detail || "Request failed");
+      }
+      return res.json();
+    }
+
+    // ── Auth ───────────────────────────────────
+    async function register(email, password, name) {
+      const data = await api("/auth/register", {
+        method: "POST",
+        body: JSON.stringify({ email, password, name }),
+      });
+      state.token = data.access_token;
+      state.user = data.user;
+      localStorage.setItem("readmark_token", data.access_token);
+    }
+
+    async function login(email, password) {
+      const data = await api("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+      state.token = data.access_token;
+      state.user = data.user;
+      localStorage.setItem("readmark_token", data.access_token);
+    }
+
+    function logout() {
+      state.token = null;
+      state.user = null;
+      state.items = [];
+      localStorage.removeItem("readmark_token");
+      render();
+    }
+
+    async function fetchProfile() {
+      try {
+        state.user = await api("/auth/me");
+        return true;
+      } catch { return false; }
+    }
+
+    // ── Items API ──────────────────────────────
+    async function fetchItems() {
+      const data = await api("/items?limit=200");
+      state.items = data.items;
+    }
+
+    async function createItem(item) {
+      const data = await api("/items", { method: "POST", body: JSON.stringify(item) });
+      state.items.unshift(data);
+    }
+
+    async function updateItemApi(id, updates) {
+      const data = await api(`/items/${id}`, { method: "PATCH", body: JSON.stringify(updates) });
+      state.items = state.items.map(i => i.id === id ? data : i);
+    }
+
+    async function deleteItemApi(id) {
+      await api(`/items/${id}`, { method: "DELETE" });
+      state.items = state.items.filter(i => i.id !== id);
+    }
+
+    // ── Helpers ────────────────────────────────
+    function extractDomain(url) {
+      try { return new URL(url).hostname.replace("www.", ""); } catch { return ""; }
+    }
+    function timeAgo(d) {
+      const diff = Math.floor((Date.now() - new Date(d).getTime()) / 1000);
+      if (diff < 60) return "now";
+      if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+      if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+      if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+      return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    }
+    function esc(s) { if (!s) return ""; const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+
+    function toast(msg) {
+      document.querySelectorAll(".toast").forEach(t => t.remove());
+      const t = document.createElement("div");
+      t.className = "toast"; t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 2500);
+    }
+
+    // ── Render ─────────────────────────────────
+    function render() {
+      const app = document.getElementById("app");
+      if (!state.token || !state.user) {
+        app.innerHTML = renderAuth();
+        bindAuth();
+        return;
+      }
+      app.innerHTML = renderDashboard();
+      bindDashboard();
+    }
+
+    // ── Auth View ──────────────────────────────
+    function renderAuth() {
+      const isLogin = state.authMode === "login";
+      return `
+        <div class="auth-screen">
+          <div class="auth-card">
+            <div class="auth-logo">
+              <div class="auth-logo-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round">
+                  <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+                </svg>
+              </div>
+              <h1>ReadMark</h1>
+            </div>
+            <div class="auth-tabs">
+              <button class="auth-tab ${isLogin ? 'active' : ''}" data-mode="login">Sign In</button>
+              <button class="auth-tab ${!isLogin ? 'active' : ''}" data-mode="register">Create Account</button>
+            </div>
+            <div class="auth-error" id="auth-error">${esc(state.authError)}</div>
+            ${!isLogin ? `
+              <div class="auth-field">
+                <label>Name</label>
+                <input class="auth-input" id="auth-name" type="text" placeholder="Your name" autocomplete="name">
+              </div>
+            ` : ""}
+            <div class="auth-field">
+              <label>Email</label>
+              <input class="auth-input" id="auth-email" type="email" placeholder="you@example.com" autocomplete="email">
+            </div>
+            <div class="auth-field">
+              <label>Password</label>
+              <input class="auth-input" id="auth-password" type="password" placeholder="${isLogin ? 'Enter password' : 'Min 8 characters'}" autocomplete="${isLogin ? 'current-password' : 'new-password'}">
+            </div>
+            <button class="auth-submit" id="auth-submit" ${state.authLoading ? 'disabled' : ''}>
+              ${state.authLoading ? 'Please wait...' : (isLogin ? 'Sign In' : 'Create Account')}
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function bindAuth() {
+      document.querySelectorAll(".auth-tab").forEach(btn => {
+        btn.addEventListener("click", () => {
+          state.authMode = btn.dataset.mode;
+          state.authError = "";
+          render();
+        });
+      });
+      const errEl = document.getElementById("auth-error");
+      if (state.authError) errEl.style.display = "block";
+
+      document.getElementById("auth-submit")?.addEventListener("click", async () => {
+        const email = document.getElementById("auth-email")?.value?.trim();
+        const password = document.getElementById("auth-password")?.value;
+        const name = document.getElementById("auth-name")?.value?.trim();
+        if (!email || !password) { state.authError = "Email and password are required"; render(); return; }
+        state.authLoading = true; state.authError = ""; render();
+        try {
+          if (state.authMode === "login") await login(email, password);
+          else await register(email, password, name);
+          state.authLoading = false;
+          await fetchItems();
+          state.loading = false;
+          render();
+          toast(`Welcome${state.user?.name ? ', ' + state.user.name : ''}!`);
+        } catch (e) {
+          state.authLoading = false;
+          state.authError = e.message;
+          render();
+        }
+      });
+
+      // Enter key
+      document.querySelectorAll(".auth-input").forEach(input => {
+        input.addEventListener("keydown", e => {
+          if (e.key === "Enter") document.getElementById("auth-submit")?.click();
+        });
+      });
+    }
+
+    // ── Dashboard View ─────────────────────────
+    function renderDashboard() {
+      const counts = {
+        all: state.items.length,
+        unread: state.items.filter(i => i.status === "unread").length,
+        reading: state.items.filter(i => i.status === "reading").length,
+        done: state.items.filter(i => i.status === "done").length,
+      };
+      const usedCats = [...new Set(state.items.map(i => i.category))];
+
+      let filtered = state.items
+        .filter(i => state.filter === "all" || i.status === state.filter)
+        .filter(i => state.categoryFilter === "all" || i.category === state.categoryFilter)
+        .filter(i => {
+          if (!state.searchQuery) return true;
+          const q = state.searchQuery.toLowerCase();
+          return i.title?.toLowerCase().includes(q) || i.url?.toLowerCase().includes(q) || i.notes?.toLowerCase().includes(q);
+        });
+
+      if (state.sortBy === "newest") filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      else if (state.sortBy === "oldest") filtered.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      else if (state.sortBy === "updated") filtered.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+      else if (state.sortBy === "alpha") filtered.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+
+      return `
+        <div class="container">
+          <header class="app-header">
+            <div class="header-left">
+              <div class="logo-mark">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round">
+                  <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+                </svg>
+              </div>
+              <div>
+                <div class="app-title">ReadMark</div>
+                <div class="app-subtitle">${state.items.length} saved · ${counts.reading} in progress</div>
+              </div>
+            </div>
+            <div class="header-right">
+              <button class="user-badge" id="logout-btn" title="Sign out">${esc(state.user?.email)}</button>
+              <button class="icon-btn ${state.refreshing ? 'spinning' : ''}" id="refresh-btn" title="Refresh">↻</button>
+              <button class="icon-btn" id="theme-btn">${state.theme === 'dark' ? '☀' : '☾'}</button>
+              <button class="add-btn" id="add-toggle-btn">+ Save Link</button>
+            </div>
+          </header>
+
+          <div class="add-form ${state.showAddForm || state.editingId ? 'visible' : ''}" id="add-form">
+            <h3>${state.editingId ? 'Edit Item' : 'Save a New Link'}</h3>
+            <div class="form-grid">
+              <input class="form-input" id="form-url" placeholder="Paste URL here..." value="${esc(state.formData.url)}">
+              <input class="form-input" id="form-title" placeholder="Title" value="${esc(state.formData.title)}">
+              <div class="form-row">
+                <select class="form-select" id="form-category">
+                  ${CATEGORIES.map(c => `<option value="${c}" ${c === state.formData.category ? 'selected' : ''}>${c}</option>`).join("")}
+                </select>
+                <button class="form-submit" id="form-submit">${state.editingId ? 'Save Changes' : 'Add to Library'}</button>
+              </div>
+              <textarea class="form-input" id="form-notes" rows="2" placeholder="Notes (optional)">${esc(state.formData.notes)}</textarea>
+            </div>
+          </div>
+
+          <div class="filters-bar">
+            <div class="status-filters">
+              ${["all", "unread", "reading", "done"].map(s => `
+                <button class="filter-btn ${state.filter === s ? 'active' : ''}" data-filter="${s}">
+                  ${s !== "all" ? `<span style="color:${STATUS_CONFIG[s].color};font-size:11px">${STATUS_CONFIG[s].icon}</span>` : ""}
+                  ${s === "all" ? "All" : STATUS_CONFIG[s].label}
+                  <span class="filter-count">${counts[s]}</span>
+                </button>
+              `).join("")}
+            </div>
+            <div class="right-filters">
+              ${usedCats.length > 1 ? `
+                <select class="filter-select" id="cat-filter">
+                  <option value="all">All Categories</option>
+                  ${usedCats.map(c => `<option value="${c}" ${c === state.categoryFilter ? 'selected' : ''}>${c}</option>`).join("")}
+                </select>
+              ` : ""}
+              <select class="filter-select" id="sort-select">
+                <option value="newest" ${state.sortBy==="newest"?"selected":""}>Newest</option>
+                <option value="oldest" ${state.sortBy==="oldest"?"selected":""}>Oldest</option>
+                <option value="updated" ${state.sortBy==="updated"?"selected":""}>Updated</option>
+                <option value="alpha" ${state.sortBy==="alpha"?"selected":""}>A → Z</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="search-wrap">
+            <span class="search-icon">⌕</span>
+            <input class="search-input" id="search-input" placeholder="Search your library..." value="${esc(state.searchQuery)}">
+          </div>
+
+          <div class="items-list">
+            ${filtered.length === 0 ? `
+              <div class="empty-state">
+                <div class="empty-icon"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
+                <div class="empty-title">${state.items.length === 0 ? 'Your library is empty' : 'No matches'}</div>
+                <div class="empty-desc">${state.items.length === 0 ? 'Save your first link to get started' : 'Try different filters'}</div>
+              </div>
+            ` : filtered.map(item => `
+              <div class="item-card" data-id="${item.id}" style="border-left:3px solid ${STATUS_CONFIG[item.status].color}">
+                <div class="item-main">
+                  <button class="status-btn" data-cycle="${item.id}" style="color:${STATUS_CONFIG[item.status].color}" title="${STATUS_CONFIG[item.status].label}">
+                    ${STATUS_CONFIG[item.status].icon}
+                  </button>
+                  <div class="item-content">
+                    ${item.url
+                      ? `<a href="${esc(item.url)}" target="_blank" class="item-title" data-open-id="${item.id}">${esc(item.title)}</a>`
+                      : `<span class="item-title">${esc(item.title)}</span>`
+                    }
+                    <div class="item-meta">
+                      ${item.url ? `<span>${extractDomain(item.url)}</span>` : ""}
+                      <span class="category-badge">${esc(item.category)}</span>
+                      <span>${timeAgo(item.created_at)}</span>
+                      ${item.scroll_position > 0 && item.status !== "unread" ? `<span class="progress-badge">${item.scroll_position}% read</span>` : ""}
+                    </div>
+                    ${item.notes ? `<p class="item-notes">${esc(item.notes)}</p>` : ""}
+                  </div>
+                  <div class="item-actions">
+                    <button class="action-btn" data-edit="${item.id}" title="Edit">✎</button>
+                    <button class="action-btn delete" data-delete="${item.id}" title="Delete">✕</button>
+                  </div>
+                </div>
+                <div class="status-bar">
+                  ${STATUS_ORDER.map(s => {
+                    const blocked =
+                      (s === 'unread' && item.status !== 'unread') ||
+                      (s === 'done'   && item.status === 'reading' && item.scroll_position < 95);
+                    const isActive = item.status === s;
+                    return `<button class="quick-status ${isActive ? 'active' : ''}"
+                      data-set-status="${item.id}" data-status="${s}"
+                      ${blocked ? 'disabled' : ''}
+                      style="${isActive ? `background:${STATUS_CONFIG[s].color}` : ''}">
+                      ${STATUS_CONFIG[s].label}
+                    </button>`;
+                  }).join("")}
+                </div>
+              </div>
+            `).join("")}
+          </div>
+
+          <footer class="app-footer">
+            <span>ReadMark · v1.0</span>
+          </footer>
+        </div>
+        <button class="fab" id="fab-btn" title="Save a link">+</button>
+        ${state.resumeModal ? `
+          <div class="modal-overlay" id="resume-modal">
+            <div class="modal-card">
+              <div class="modal-icon">📖</div>
+              <div class="modal-title">Pick up where you left off?</div>
+              <div class="modal-article">${esc(state.resumeModal.item.title)}</div>
+              <div class="modal-pct">${state.resumeModal.item.scroll_position}%</div>
+              <div class="modal-pct-label">through this article</div>
+              <div class="modal-actions">
+                <button class="btn-resume" id="modal-resume">Resume Reading</button>
+                <button class="btn-start-over" id="modal-start">Start from Beginning</button>
+              </div>
+            </div>
+          </div>
+        ` : ''}
+      `;
+    }
+
+    function bindDashboard() {
+      // Theme
+      document.getElementById("theme-btn")?.addEventListener("click", () => {
+        state.theme = state.theme === "dark" ? "light" : "dark";
+        document.body.classList.toggle("light", state.theme === "light");
+        localStorage.setItem("readmark_theme", state.theme);
+        render();
+      });
+
+      // Logout
+      document.getElementById("logout-btn")?.addEventListener("click", logout);
+
+      // Refresh
+      document.getElementById("refresh-btn")?.addEventListener("click", async () => {
+        if (state.refreshing) return;
+        state.refreshing = true; render();
+        try { await fetchItems(); } finally { state.refreshing = false; render(); }
+      });
+
+      // Add form toggle (desktop button + mobile FAB)
+      const openAddForm = () => {
+        state.showAddForm = !state.showAddForm;
+        state.editingId = null;
+        state.formData = { url: "", title: "", category: "Article", notes: "" };
+        render();
+        if (state.showAddForm) setTimeout(() => document.getElementById("form-url")?.focus(), 50);
+      };
+      document.getElementById("add-toggle-btn")?.addEventListener("click", openAddForm);
+      document.getElementById("fab-btn")?.addEventListener("click", openAddForm);
+
+      // Form submit
+      document.getElementById("form-submit")?.addEventListener("click", async () => {
+        const url = document.getElementById("form-url")?.value?.trim();
+        const title = document.getElementById("form-title")?.value?.trim() || extractDomain(url) || "Untitled";
+        const category = document.getElementById("form-category")?.value;
+        const notes = document.getElementById("form-notes")?.value?.trim();
+
+        try {
+          if (state.editingId) {
+            await updateItemApi(state.editingId, { url, title, category, notes });
+            toast("Updated!");
+          } else {
+            await createItem({ url, title, category, notes });
+            toast("Saved!");
+          }
+          state.showAddForm = false;
+          state.editingId = null;
+          state.formData = { url: "", title: "", category: "Article", notes: "" };
+          render();
+        } catch (e) { toast(e.message); }
+      });
+
+      // Enter key on form inputs
+      document.querySelectorAll("#form-url, #form-title").forEach(el => {
+        el?.addEventListener("keydown", e => {
+          if (e.key === "Enter") document.getElementById("form-submit")?.click();
+        });
+      });
+
+      // Status filters
+      document.querySelectorAll("[data-filter]").forEach(btn => {
+        btn.addEventListener("click", () => { state.filter = btn.dataset.filter; render(); });
+      });
+
+      // Category filter
+      document.getElementById("cat-filter")?.addEventListener("change", e => {
+        state.categoryFilter = e.target.value; render();
+      });
+
+      // Sort
+      document.getElementById("sort-select")?.addEventListener("change", e => {
+        state.sortBy = e.target.value; render();
+      });
+
+      // Search
+      document.getElementById("search-input")?.addEventListener("input", e => {
+        state.searchQuery = e.target.value; render();
+      });
+
+      // Cycle status — enforces transition rules
+      document.querySelectorAll("[data-cycle]").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const item = state.items.find(i => i.id === btn.dataset.cycle);
+          if (!item) return;
+          let next;
+          if (item.status === 'unread')   next = 'reading';
+          else if (item.status === 'reading' && item.scroll_position >= 95) next = 'done';
+          else if (item.status === 'done') next = 'reading';
+          // reading < 95% and unread↑ have no valid cycle target — do nothing
+          if (!next) return;
+          try { await updateItemApi(item.id, { status: next }); render(); } catch (e) { toast(e.message); }
+        });
+      });
+
+      // Quick status buttons
+      document.querySelectorAll("[data-set-status]").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          try {
+            await updateItemApi(btn.dataset.setStatus, { status: btn.dataset.status });
+            render();
+          } catch (e) { toast(e.message); }
+        });
+      });
+
+      // Edit
+      document.querySelectorAll("[data-edit]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const item = state.items.find(i => i.id === btn.dataset.edit);
+          if (!item) return;
+          state.editingId = item.id;
+          state.showAddForm = false;
+          state.formData = { url: item.url || "", title: item.title, category: item.category, notes: item.notes || "" };
+          render();
+        });
+      });
+
+      // Delete
+      document.querySelectorAll("[data-delete]").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          try { await deleteItemApi(btn.dataset.delete); toast("Deleted"); render(); } catch (e) { toast(e.message); }
+        });
+      });
+
+      // Open link → show resume modal if in-progress, else go straight to reader
+      document.querySelectorAll("[data-open-id]").forEach(link => {
+        link.addEventListener("click", async e => {
+          e.preventDefault();
+          const item = state.items.find(i => i.id === link.dataset.openId);
+          if (!item || !item.url) return;
+
+          if (item.status === "unread") {
+            try { await updateItemApi(item.id, { status: "reading" }); } catch {}
+          }
+
+          if (item.scroll_position > 5 && item.status === "reading") {
+            state.resumeModal = { item };
+            render();
+          } else {
+            openReader(item.url, item.scroll_position);
+          }
+        });
+      });
+
+      // Resume modal buttons
+      document.getElementById("modal-resume")?.addEventListener("click", () => {
+        const { item } = state.resumeModal;
+        state.resumeModal = null;
+        openReader(item.url, item.scroll_position);
+      });
+      document.getElementById("modal-start")?.addEventListener("click", () => {
+        const { item } = state.resumeModal;
+        state.resumeModal = null;
+        openReader(item.url, 0);
+      });
+      document.getElementById("resume-modal")?.addEventListener("click", e => {
+        if (e.target.id === "resume-modal") { state.resumeModal = null; render(); }
+      });
+    }
+
+    function openReader(url, pos) {
+      window.location.href = `/read?url=${encodeURIComponent(url)}&pos=${pos || 0}`;
+    }
+
+    // ── Auto-refresh when returning to the app ──
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden && state.user) {
+        fetchItems().then(() => render()).catch(() => {});
+      }
+    });
+
+    // ── Init ───────────────────────────────────
+    async function init() {
+      // Register service worker for PWA / offline support
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+      }
+
+      // Handle Web Share Target — browser passes ?url=X&title=Y when user shares to app
+      const params = new URLSearchParams(window.location.search);
+      const sharedUrl = params.get('url') || params.get('text') || '';
+      const sharedTitle = params.get('title') || '';
+      if (sharedUrl) {
+        state.showAddForm = true;
+        state.formData = { url: sharedUrl, title: sharedTitle, category: 'Article', notes: '' };
+        window.history.replaceState({}, '', '/');
+      }
+
+      if (state.token) {
+        const valid = await fetchProfile();
+        if (valid) {
+          await fetchItems();
+          state.loading = false;
+        }
+      } else {
+        state.loading = false;
+      }
+      render();
+      if (sharedUrl && state.user) {
+        setTimeout(() => document.getElementById("form-title")?.focus(), 100);
+      }
+    }
+    init();
+  </script>
+</body>
+</html>

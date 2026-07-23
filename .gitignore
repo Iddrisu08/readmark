@@ -1,0 +1,28 @@
+# ── Secrets ────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Databases ──────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── Python ─────────────────────────────────
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+
+# ── Node (future tooling) ──────────────────
+node_modules/
+
+# ── Editor / OS ────────────────────────────
+*.swp
+*.swo
+*~
+.vscode/
+*.code-workspace
+.DS_Store
