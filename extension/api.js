@@ -175,4 +175,14 @@ const ReadMarkAPI = {
       body: JSON.stringify({ items }),
     });
   },
+
+  // ── AI ───────────────────────────────────────────────────
+  // Summarize a saved item with Claude. Requires an AI-enabled backend
+  // (returns 503/404 otherwise); callers should handle that gracefully.
+  async summarizeItem(itemId) {
+    return this.request("/ai/summarize", {
+      method: "POST",
+      body: JSON.stringify({ item_id: itemId }),
+    });
+  },
 };

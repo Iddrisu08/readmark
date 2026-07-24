@@ -19,6 +19,7 @@ let popupState = {
   pageMeta: null,
   existingItem: null,  // If current page is already saved
   recentItems: [],
+  summarizing: false,
   theme: "dark",
 };
 
@@ -297,6 +298,15 @@ function renderMain() {
             <button class="btn-primary" id="update-status-btn" style="width:auto;padding:7px 14px;margin-top:0">Update</button>
             <button class="btn-primary" id="delete-btn" style="width:auto;padding:7px 14px;margin-top:0;background:var(--danger)">Remove</button>
           </div>
+          <button class="btn-primary" id="summarize-btn" style="width:100%;margin-top:8px;background:var(--accent)" ${popupState.summarizing ? 'disabled' : ''}>
+            ${popupState.summarizing ? '✨ Summarizing…' : '✨ Summarize with AI'}
+          </button>
+          ${existing.summary ? `
+            <div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:color-mix(in srgb,var(--accent) 10%,transparent);border-left:2px solid var(--accent);font-size:12px;line-height:1.5;color:var(--text)">
+              <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;color:var(--accent);margin-bottom:3px">✨ AI summary</div>
+              ${esc(existing.summary)}
+            </div>
+          ` : ''}
         ` : `
           <div class="already-saved no">
             ✦ New — save this page to your library
@@ -408,6 +418,22 @@ function bindMain() {
       render();
       toast("Updated!");
     } catch (e) { toast(e.message); }
+  });
+
+  // Summarize with AI (Claude)
+  document.getElementById("summarize-btn")?.addEventListener("click", async () => {
+    if (popupState.summarizing || !popupState.existingItem) return;
+    popupState.summarizing = true; render();
+    try {
+      const data = await ReadMarkAPI.summarizeItem(popupState.existingItem.id);
+      popupState.existingItem.summary = data.summary;
+      toast(`Summarized · $${(data.cost_usd || 0).toFixed(4)}`);
+    } catch (e) {
+      const unavailable = /not enabled|not found|404|failed to fetch/i.test(e.message || "");
+      toast(unavailable ? "AI not available on this server" : (e.message || "Could not summarize"));
+    } finally {
+      popupState.summarizing = false; render();
+    }
   });
 
   // Delete
