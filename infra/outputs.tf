@@ -27,3 +27,8 @@ output "log_group" {
   description = "CloudWatch log group for container logs."
   value       = aws_cloudwatch_log_group.app.name
 }
+
+output "dashboard_url" {
+  description = "CloudWatch dashboard for the app."
+  value       = "https://${var.aws_region}.console.aws.amazon.com/cloudwatch/home?region=${var.aws_region}#dashboards/dashboard/${aws_cloudwatch_dashboard.app.dashboard_name}"
+}

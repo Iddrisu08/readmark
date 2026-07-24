@@ -261,3 +261,61 @@ resource "aws_cloudwatch_metric_alarm" "cpu_high" {
   alarm_description   = "CPU above 80% for 15 minutes"
   dimensions          = { InstanceId = aws_instance.app.id }
 }
+
+# ── CloudWatch dashboard ──────────────────────────────────────────────────
+resource "aws_cloudwatch_dashboard" "app" {
+  dashboard_name = var.project
+
+  dashboard_body = jsonencode({
+    widgets = [
+      {
+        type       = "text", x = 0, y = 0, width = 24, height = 2,
+        properties = { markdown = "# ReadMark — ${var.domain != "" ? var.domain : aws_eip.app.public_ip}\nEC2 `${aws_instance.app.id}` · region `${var.aws_region}`" }
+      },
+      {
+        type = "metric", x = 0, y = 2, width = 12, height = 6,
+        properties = {
+          title   = "CPU Utilization (%)",
+          region  = var.aws_region,
+          view    = "timeSeries", stat = "Average", period = 300,
+          metrics = [["AWS/EC2", "CPUUtilization", "InstanceId", aws_instance.app.id]],
+          yAxis   = { left = { min = 0, max = 100 } }
+        }
+      },
+      {
+        type = "metric", x = 12, y = 2, width = 12, height = 6,
+        properties = {
+          title  = "Status Checks (failed)",
+          region = var.aws_region,
+          view   = "timeSeries", stat = "Maximum", period = 60,
+          metrics = [
+            ["AWS/EC2", "StatusCheckFailed", "InstanceId", aws_instance.app.id],
+            ["AWS/EC2", "StatusCheckFailed_Instance", "InstanceId", aws_instance.app.id],
+            ["AWS/EC2", "StatusCheckFailed_System", "InstanceId", aws_instance.app.id]
+          ]
+        }
+      },
+      {
+        type = "metric", x = 0, y = 8, width = 12, height = 6,
+        properties = {
+          title  = "Network (bytes)",
+          region = var.aws_region,
+          view   = "timeSeries", stat = "Average", period = 300,
+          metrics = [
+            ["AWS/EC2", "NetworkIn", "InstanceId", aws_instance.app.id],
+            ["AWS/EC2", "NetworkOut", "InstanceId", aws_instance.app.id]
+          ]
+        }
+      },
+      {
+        type = "log", x = 12, y = 8, width = 12, height = 6,
+        properties = {
+          title  = "Recent errors (app logs)",
+          region = var.aws_region,
+          view   = "table",
+          query  = "SOURCE '${aws_cloudwatch_log_group.app.name}' | fields @timestamp, level, msg | filter level = \"ERROR\" | sort @timestamp desc | limit 20"
+        }
+      }
+    ]
+  })
+}
