@@ -27,7 +27,10 @@ ALLOWED_ORIGINS=${allowed_origins}
 AI_MODEL=${ai_model}
 EOF
 
+# The container runs as non-root uid 10001 (see backend/Dockerfile); the mounted
+# data dir must be writable by that uid or SQLite can't open its file.
 mkdir -p /opt/${project}/data
+chown -R 10001:10001 /opt/${project}/data
 
 # ── Deploy script (quoted heredoc: written verbatim, runs at deploy time) ──
 cat > /usr/local/bin/readmark-deploy.sh <<'DEPLOY'
