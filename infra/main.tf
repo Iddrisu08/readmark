@@ -211,7 +211,11 @@ resource "aws_instance" "app" {
     backups_bucket  = aws_s3_bucket.backups.bucket
     allowed_origins = var.allowed_origins
     ai_model        = var.ai_model
+    domain          = var.domain
   })
+
+  # user-data only runs on first boot; don't replace a running instance when it changes.
+  user_data_replace_on_change = false
 
   metadata_options {
     http_tokens = "required" # IMDSv2 only

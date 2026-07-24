@@ -82,5 +82,31 @@ chmod +x /usr/local/bin/readmark-backup.sh
 
 echo "15 3 * * * root /usr/local/bin/readmark-backup.sh >> /var/log/readmark-backup.log 2>&1" > /etc/cron.d/readmark-backup
 
+# ── Optional HTTPS via Caddy (auto Let's Encrypt) ─────────────────────────
+DOMAIN="${domain}"
+if [ -n "$${DOMAIN}" ]; then
+  curl -sfL -o /usr/bin/caddy "https://caddyserver.com/api/download?os=linux&arch=amd64"
+  chmod +x /usr/bin/caddy
+  mkdir -p /etc/caddy /var/lib/caddy
+  cat > /etc/caddy/Caddyfile <<'CADDY'
+${domain} {
+    reverse_proxy localhost:8000
+}
+CADDY
+  cat > /etc/systemd/system/caddy.service <<'UNIT'
+[Unit]
+Description=Caddy
+After=network.target
+[Service]
+Environment=XDG_DATA_HOME=/var/lib/caddy
+ExecStart=/usr/bin/caddy run --config /etc/caddy/Caddyfile
+Restart=on-failure
+[Install]
+WantedBy=multi-user.target
+UNIT
+  systemctl daemon-reload
+  systemctl enable --now caddy
+fi
+
 # ── First deploy (no-op if no image pushed yet) ───────────────────────────
 /usr/local/bin/readmark-deploy.sh || echo "no image yet — CI/CD will deploy"

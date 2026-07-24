@@ -52,3 +52,9 @@ variable "ai_model" {
   type        = string
   default     = "claude-haiku-4-5-20251001"
 }
+
+variable "domain" {
+  description = "Optional domain for HTTPS via Caddy (e.g. aws.getreadmark.com). Empty = HTTP only on :8000."
+  type        = string
+  default     = ""
+}
