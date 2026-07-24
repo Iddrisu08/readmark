@@ -72,6 +72,7 @@ class ItemResponse(BaseModel):
     title: str
     category: str
     notes: Optional[str] = None
+    summary: Optional[str] = None
     status: str
     scroll_position: int
     estimated_read_time: int
