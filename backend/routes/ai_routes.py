@@ -23,9 +23,14 @@ log = logging.getLogger("readmark.ai")
 
 
 async def _fetch_article_text(url: str) -> str:
-    async with httpx.AsyncClient(follow_redirects=True, timeout=15.0) as client:
-        resp = await client.get(url, headers={"User-Agent": "ReadMarkBot/1.0"})
-    resp.raise_for_status()
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=15.0) as client:
+            resp = await client.get(url, headers={"User-Agent": "ReadMarkBot/1.0"})
+        resp.raise_for_status()
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=502, detail=f"Could not fetch the article (HTTP {e.response.status_code})")
+    except httpx.HTTPError:
+        raise HTTPException(status_code=502, detail="Could not fetch the article to summarize")
     return html_to_text(resp.text)
 
 
