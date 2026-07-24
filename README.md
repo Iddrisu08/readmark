@@ -228,20 +228,10 @@ used. **Set `SECRET_KEY` via `.env` before exposing it publicly.**
 Beyond the single-server Docker setup above, ReadMark ships with a full
 **Infrastructure-as-Code** deployment to AWS and an automated delivery pipeline.
 
-```
-GitHub push ─► Actions ─┬─ CI:        ruff lint + pytest (43 integration tests)
-                        ├─ Deploy:    build image → ECR → SSM run-command → EC2
-                        ├─ Terraform: fmt / validate / plan (+ Infracost)
-                        └─ Infracost: monthly cost estimate on infra PRs
+![ReadMark AWS architecture](docs/architecture.svg)
 
-AWS (us-east-1, default VPC), all provisioned by Terraform (infra/):
-  EC2 t3.micro (Docker) ── SQLite on EBS
-    ├─ image pulled from ECR
-    ├─ secrets from SSM Parameter Store (SecureString), injected at runtime
-    ├─ container logs → CloudWatch Logs (structured JSON)
-    └─ daily SQLite snapshot → S3 (30-day lifecycle)
-  CloudWatch alarms: instance status-check + CPU
-```
+*A push to `main` runs CI, builds the image to ECR, and deploys to EC2 via SSM.
+Everything in the AWS box is provisioned by Terraform (`infra/`).*
 
 | Capability | How |
 | --- | --- |
